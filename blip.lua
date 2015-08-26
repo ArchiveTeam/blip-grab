@@ -9,6 +9,7 @@ local item_value = os.getenv('item_value')
 local downloaded = {}
 local addedtolist = {}
 local removedlist = {}
+local goodurl = {}
 
 local removed = false
 local showname = nil
@@ -120,6 +121,28 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
       end
     end
   end
+  
+  local function checkvideo(url)
+    if goodurl[url] ~= true then
+      io.stdout:write("Checking if server returns data for "..url.."\n")
+      io.stdout:flush()
+      os.execute("python returneddata.py '"..url.."'")
+      local returneddata = io.open("returned", "r")
+      local fulldata = returneddata:read("*all")
+      if fulldata == 'True' then
+        io.stdout:write("Data is returned, added URL to downloadlist.\n")
+        io.stdout:flush()
+        goodurl[url] = true
+        checkvideo(url)
+      else
+        io.stdout:write("No data was returned, skipping URL.\n")
+        io.stdout:flush()
+      end
+    else
+      table.insert(urls, { url=url })
+      addedtolist[url] = true
+    end
+  end
 
   if item_type == 'show' and showname == nil and not string.match(url, "https?://blip%.tv/[^/]+/") then
     showname = string.match(url, "https?://blip%.tv/(.+)")
@@ -179,21 +202,18 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     end
     for newurl in string.gmatch(html, 'url="(https?://[^"]+)" blip:role="Source"') do
       if downloaded[newurl] ~= true and addedtolist[newurl] ~= true then
-        table.insert(urls, { url=newurl })
-        addedtolist[newurl] = true
+        checkvideo(newurl)
       end
     end
     for newurl in string.gmatch(html, 'url="(https?://[^"]+)" blip:role="source"') do
       if downloaded[newurl] ~= true and addedtolist[newurl] ~= true then
-        table.insert(urls, { url=newurl })
-        addedtolist[newurl] = true
+        checkvideo(newurl)
       end
     end
     if string.match(url, "showplayer=2014093037100220150422135039") then
       local newurl = string.gsub(string.gsub(string.gsub(string.gsub(string.gsub(string.match(html, "=(.-)\n"), "%%3A", ":"), "%%2F", "/"), "%%3F", "?"), "%%3D", "="), "%%26", "&")
       if downloaded[newurl] ~= true and addedtolist[newurl] ~= true and removedlist[url] ~= true then
-        table.insert(urls, { url=newurl })
-        addedtolist[newurl] = true
+        checkvideo(newurl)
       end
     end
     for newurl in string.gmatch(html, 'url="(https?://[^"]+)" blip:role="Blip SD"') do
@@ -317,3 +337,4 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
 
   return wget.actions.NOTHING
 end
+
