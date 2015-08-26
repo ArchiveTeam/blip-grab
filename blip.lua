@@ -123,14 +123,14 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
   end
   
   local function checkvideo(url)
-    if goodurl[url] ~= true then
-      io.stdout:write("Checking if server returns data for "..url.."\n")
+    if goodurl[url] ~= true and string.match(string.match(url, '^https?://([^/]+)/'), 'blip%.tv') then
+      io.stdout:write("Checking if server returns data for "..url..".\n")
       io.stdout:flush()
       os.execute("python returneddata.py '"..url.."'")
       local returneddata = io.open("returned", "r")
       local fulldata = returneddata:read("*all")
       if fulldata == 'True' then
-        io.stdout:write("Data is returned, added URL to downloadlist.\n")
+        io.stdout:write("Data is returned.\n")
         io.stdout:flush()
         goodurl[url] = true
         checkvideo(url)
@@ -138,11 +138,13 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
         io.stdout:write("No data was returned, skipping URL.\n")
         io.stdout:flush()
       end
-    else
+    elseif string.match(string.match(url, '^https?://([^/]+)/'), 'blip%.tv') then
+      io.stdout:write("Added "..url.." to downloadlist.\n")
+      io.stdout:flush()
       table.insert(urls, { url=url })
       addedtolist[url] = true
     end
-  end
+  end        
 
   if item_type == 'show' and showname == nil and not string.match(url, "https?://blip%.tv/[^/]+/") then
     showname = string.match(url, "https?://blip%.tv/(.+)")
@@ -279,8 +281,7 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
     removed = true
   end
 
-  if removed == true and status_code == 410 then
-    removedlist[url["url"]] = true
+  if status_code == 410 then
     return wget.actions.NOTHING
   elseif status_code >= 500 or
     (status_code >= 400 and status_code ~= 404) then
@@ -337,4 +338,3 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
 
   return wget.actions.NOTHING
 end
-
